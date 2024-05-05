@@ -14,6 +14,7 @@ from datetime import date
 from aiohttp import web
 from aiortc import RTCPeerConnection, RTCSessionDescription, MediaStreamTrack, RTCDataChannel
 from aiortc.contrib.media import MediaRecorder, MediaPlayer
+import os
 
 logger = logging.getLogger("pc")
 ROOT = os.path.dirname(__file__)
@@ -22,6 +23,8 @@ pcs = set()
 
 
 class State:
+    id: str
+    filename: str
     pc: RTCPeerConnection
     dc: RTCDataChannel
     track: MediaStreamTrack
@@ -47,11 +50,12 @@ async def offer(request):
     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
 
     state.pc = RTCPeerConnection()
-    pc_id = "PeerConnection(%s)" % uuid.uuid4()
-    pcs.add(state.pc)
+    state.id = str(uuid.uuid4())
+    state.filename = f"{state.id}.wav"
+    pcs.add(state)
 
     def log_info(msg, *args):
-        logger.info(pc_id + " " + msg, *args)
+        logger.info(state.id + " " + msg, *args)
 
     log_info("Created for %s", request.remote)
 
@@ -91,7 +95,8 @@ async def offer(request):
             log_info("Received message on channel: %s", message)
             if message == "start_recording":
                 log_info("Creating new recorder")
-                state.recorder = MediaRecorder("recording.wav", "wav")
+                deleteFile(state.filename)
+                state.recorder = MediaRecorder(state.filename, "wav")
                 log_info("Adding track")
                 state.recorder.addTrack(state.track)
                 log_info("Starting recording")
@@ -113,8 +118,17 @@ async def offer(request):
 
 async def on_shutdown(app):
     # close peer connections
-    coros = [pc.close() for pc in pcs]
+    coros = [state.pc.close() for state in pcs]
+    for state in pcs:
+        deleteFile(state.filename)
     await asyncio.gather(*coros)
+
+
+def deleteFile(filename):
+    try:
+        os.remove(filename)
+    except OSError:
+        pass
 
 
 if __name__ == "__main__":

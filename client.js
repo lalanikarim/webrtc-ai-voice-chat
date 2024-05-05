@@ -84,6 +84,14 @@ function start() {
     // Adding tracks
     // stream.getAudioTracks().forEach((track) => pc.addTrack(track, stream))
     // document.querySelector('button#start').style.display = 'none';
+    //negotiate()
+    getMedia()
+    hideElement(startSessionButton)
+    showElement(startRecordingButton)
+    showElement(stopSessionButton)
+    //document.querySelector('button#stop').style.display = 'inline-block';
+}
+function getMedia(){
     const constraints = {
         audio: true,
         video: false
@@ -92,10 +100,6 @@ function start() {
         .getUserMedia(constraints)
         .then(handleSuccess)
         .catch(handleFailure);
-    hideElement(startSessionButton)
-    showElement(startRecordingButton)
-    showElement(stopSessionButton)
-    //document.querySelector('button#stop').style.display = 'inline-block';
 }
 
 function stop() {
@@ -114,6 +118,7 @@ function record(){
     hideElement(startRecordingButton)
     showElement(stopRecordingButton)
     hideElement(stopSessionButton)
+    //getMedia()
     state.dc.send("start_recording")
 }
 
