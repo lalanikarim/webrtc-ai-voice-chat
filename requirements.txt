@@ -1,0 +1,6 @@
+aiohttp~=3.9.5
+aiortc~=1.8.0
+librosa~=0.10.2
+transformers~=4.40.1
+torch~=2.3.0
+torchaudio~=2.3.0
