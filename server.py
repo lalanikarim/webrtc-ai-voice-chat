@@ -1,12 +1,15 @@
 import argparse
 import asyncio
+import datetime
 import json
 import logging
 import os
 import ssl
+import time
 import uuid
 import librosa
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
+from datetime import date
 
 from aiohttp import web
 from aiortc import RTCPeerConnection, RTCSessionDescription, MediaStreamTrack, RTCDataChannel
@@ -15,28 +18,17 @@ from aiortc.contrib.media import MediaRecorder, MediaPlayer
 logger = logging.getLogger("pc")
 ROOT = os.path.dirname(__file__)
 
-relay = None
-webcam = None
-pc = None
-
 pcs = set()
 
 
-class EchoTrack(MediaStreamTrack):
-    """
-    A media stream track that reflects the same media frame it receives.
-    """
+class State:
+    pc: RTCPeerConnection
+    dc: RTCDataChannel
+    track: MediaStreamTrack
+    recorder: MediaRecorder
 
-    def __init__(self, track):
-        super().__init__()  # don't forget this!
-        self.track = track
-        self.kind = track.kind
 
-    async def recv(self):
-        logger.info("recved Track")
-        frame = await self.track.recv()
-        logger.debug(frame)
-        return frame
+state = State()
 
 
 async def index(request):
@@ -53,58 +45,68 @@ async def offer(request):
     params = await request.json()
 
     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
-    recorder = MediaRecorder("recording.wav", "wav")
 
-    pc = RTCPeerConnection()
+    state.pc = RTCPeerConnection()
     pc_id = "PeerConnection(%s)" % uuid.uuid4()
-    pcs.add(pc)
+    pcs.add(state.pc)
 
     def log_info(msg, *args):
         logger.info(pc_id + " " + msg, *args)
 
     log_info("Created for %s", request.remote)
 
-    @pc.on("iceconnectionstatechange")
+    @state.pc.on("iceconnectionstatechange")
     async def on_iceconnectionstatechange():
-        log_info("ICE connection state is %s", pc.iceConnectionState)
-        if pc.iceConnectionState == "failed":
-            await pc.close()
+        log_info("ICE connection state is %s", state.pc.iceConnectionState)
+        if state.pc.iceConnectionState == "failed":
+            await state.pc.close()
 
-    @pc.on("track")
+    @state.pc.on("track")
     async def on_track(track):
         log_info("Track %s received", track.kind)
 
         if track.kind == "audio":
-            log_info("Recording %s", track.kind)
-            recorder.addTrack(track)
-            log_info("Sending back ")
+            log_info("Received %s", track.kind)
+            state.track = track
 
         @track.on("ended")
         async def on_ended():
             log_info("Track %s ended", track.kind)
-            await recorder.stop()
 
     # handle offer
-    await pc.setRemoteDescription(offer)
+    await state.pc.setRemoteDescription(offer)
 
     # send answer
-    answer = await pc.createAnswer()
-    await pc.setLocalDescription(answer)
+    answer = await state.pc.createAnswer()
+    await state.pc.setLocalDescription(answer)
 
-    @pc.on("datachannel")
+    @state.pc.on("datachannel")
     async def on_datachannel(channel):
         log_info("DataChannel")
+        state.dc = channel
+        state.dc.send("ready")
 
         @channel.on("message")
-        def on_message(message):
+        async def on_message(message):
             log_info("Received message on channel: %s", message)
-
-    await recorder.start()
+            if message == "start_recording":
+                log_info("Creating new recorder")
+                state.recorder = MediaRecorder("recording.wav", "wav")
+                log_info("Adding track")
+                state.recorder.addTrack(state.track)
+                log_info("Starting recording")
+                await state.recorder.start()
+                channel.send("recording_started")
+                channel.send(time.time().__str__())
+            if message == "stop_recording":
+                await state.recorder.stop()
+                channel.send("recording_stopped")
+                channel.send(time.time().__str__())
 
     return web.Response(
         content_type="application/json",
         text=json.dumps(
-            {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
+            {"sdp": state.pc.localDescription.sdp, "type": state.pc.localDescription.type}
         ),
     )
 
@@ -116,18 +118,9 @@ async def on_shutdown(app):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="WebRTC webcam demo")
+    parser = argparse.ArgumentParser(description="WebRTC server")
     parser.add_argument("--cert-file", help="SSL certificate file (for HTTPS)")
     parser.add_argument("--key-file", help="SSL key file (for HTTPS)")
-    parser.add_argument("--play-from", help="Read the media from a file and sent it.")
-    parser.add_argument(
-        "--play-without-decoding",
-        help=(
-            "Read the media without decoding it (experimental). "
-            "For now it only works with an MPEGTS container with only H.264 video."
-        ),
-        action="store_true",
-    )
     parser.add_argument(
         "--host", default="0.0.0.0", help="Host for HTTP server (default: 0.0.0.0)"
     )
@@ -135,12 +128,6 @@ if __name__ == "__main__":
         "--port", type=int, default=8080, help="Port for HTTP server (default: 8080)"
     )
     parser.add_argument("--verbose", "-v", action="count")
-    parser.add_argument(
-        "--audio-codec", help="Force a specific audio codec (e.g. audio/opus)"
-    )
-    parser.add_argument(
-        "--video-codec", help="Force a specific video codec (e.g. video/H264)"
-    )
 
     args = parser.parse_args()
 

@@ -1,27 +1,35 @@
-let pc = null;
-let dc = null;
+let state = {
+    pc:null,
+    dc:null,
+    stream:null,
+}
+
+let startSessionButton = document.querySelector("button#start");
+let startRecordingButton = document.querySelector("button#record");
+let stopRecordingButton = document.querySelector("button#stopRecord");
+let stopSessionButton = document.querySelector("button#stop");
 
 function negotiate() {
     //pc.addTransceiver('audio', { direction: 'sendrecv' });
-    return pc.createOffer().then((offer) => {
-        return pc.setLocalDescription(offer);
+    return state.pc.createOffer().then((offer) => {
+        return state.pc.setLocalDescription(offer);
     }).then(() => {
         // wait for ICE gathering to complete
         return new Promise((resolve) => {
-            if (pc.iceGatheringState === 'complete') {
+            if (state.pc.iceGatheringState === 'complete') {
                 resolve();
             } else {
                 const checkState = () => {
-                    if (pc.iceGatheringState === 'complete') {
-                        pc.removeEventListener('icegatheringstatechange', checkState);
+                    if (state.pc.iceGatheringState === 'complete') {
+                        state.pc.removeEventListener('icegatheringstatechange', checkState);
                         resolve();
                     }
                 };
-                pc.addEventListener('icegatheringstatechange', checkState);
+                state.pc.addEventListener('icegatheringstatechange', checkState);
             }
         });
     }).then(() => {
-        var offer = pc.localDescription;
+        var offer = state.pc.localDescription;
         return fetch('/offer', {
             body: JSON.stringify({
                 sdp: offer.sdp,
@@ -35,13 +43,15 @@ function negotiate() {
     }).then((response) => {
         return response.json();
     }).then((answer) => {
-        return pc.setRemoteDescription(answer);
+        return state.pc.setRemoteDescription(answer);
     }).catch((e) => {
         alert(e);
     });
 }
 
-function start(stream) {
+function start() {
+    stop()
+
     const config = {
         sdpSemantics: 'unified-plan'
     };
@@ -50,43 +60,30 @@ function start(stream) {
         config.iceServers = [{ urls: ['stun:stun.l.google.com:19302'] }];
     }
 
-    pc = new RTCPeerConnection(config);
-    dc = pc.createDataChannel("chat")
-    dc.onopen = (ev) => {
+    state.pc = new RTCPeerConnection(config);
+    state.dc = state.pc.createDataChannel("chat")
+    state.dc.onopen = (ev) => {
         console.log("Data channel is open and ready to use");
-        dc.send("Hello server");
+        state.dc.send("Hello server");
     }
-    dc.onmessage = (ev) => {
+    state.dc.onmessage = (ev) => {
         console.log('Received message: ' + ev.data);
+        if(ev.data === "ready") {
+            record()
+        }
     }
-    dc.onclose = () => {
+    state.dc.onclose = () => {
         console.log("Data channel is closed");
     }
 
     // connect audio / video
-    pc.ontrack = (ev) => {
+    state.pc.ontrack = (ev) => {
         console.log('Received remote stream');
         document.querySelector('audio#remoteAudio').srcObject = ev.streams[0];
     }
     // Adding tracks
-    stream.getAudioTracks().forEach((track) => pc.addTrack(track, stream))
-    //document.querySelector('button#start').style.display = 'none';
-    negotiate();
-    //document.querySelector('button#stop').style.display = 'inline-block';
-}
-
-function stop() {
-    document.querySelector('button#stop').style.display = 'none';
-    //document.querySelector('button#start').style.display = 'inline-block';
-    // close peer connection
-    setTimeout(() => {
-        pc.close();
-    }, 500);
-}
-
-function record(){
-    document.querySelector('button#record').style.display = 'none';
-    document.querySelector('button#stopRecord').style.display = 'inline-block';
+    // stream.getAudioTracks().forEach((track) => pc.addTrack(track, stream))
+    // document.querySelector('button#start').style.display = 'none';
     const constraints = {
         audio: true,
         video: false
@@ -95,20 +92,56 @@ function record(){
         .getUserMedia(constraints)
         .then(handleSuccess)
         .catch(handleFailure);
+    hideElement(startSessionButton)
+    showElement(startRecordingButton)
+    showElement(stopSessionButton)
+    //document.querySelector('button#stop').style.display = 'inline-block';
 }
 
+function stop() {
+    hideElement(stopSessionButton)
+    hideElement(startRecordingButton)
+    showElement(startSessionButton)
+    if(state.pc) {
+        // close peer connection
+        setTimeout(() => {
+            state.pc.close();
+        }, 500);
+    }
+}
+
+function record(){
+    hideElement(startRecordingButton)
+    showElement(stopRecordingButton)
+    hideElement(stopSessionButton)
+    state.dc.send("start_recording")
+}
+
+function stopRecord() {
+    hideElement(stopRecordingButton)
+    showElement(startRecordingButton)
+    showElement(stopSessionButton)
+    state.dc.send("stop_recording")
+}
 function handleSuccess(stream) {
     const tracks = stream.getAudioTracks()
     console.log("Received: ", tracks.length, " tracks")
-    start(stream)
+    state.stream = stream
+    state.stream.getAudioTracks().forEach((track) =>{
+        state.pc.addTrack(track)
+    })
+    negotiate()
 }
 
 function handleFailure(error) {
     console.log('navigator.getUserMedia error: ', error);
 }
 
-function stopRecord() {
-    document.querySelector('button#stopRecord').style.display = 'none';
-    document.querySelector('button#record').style.display = 'inline-block';
-    stop()
+function showElement(element) {
+    element.classList.remove("hide")
+    element.classList.add("show")
+}
+function hideElement(element) {
+    element.classList.remove("show")
+    element.classList.add("hide")
 }

@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WebRTC webcam</title>
     <style>
+        .hide {
+            display: none;
+        }
+        .show {
+            display: inline-block;
+        }
     button {
         padding: 8px 16px;
     }
@@ -29,14 +35,12 @@
     <label for="use-stun">Use STUN server</label>
 </div>
 
-<button id="record" onclick="record()" >Record</button>
-<button id="start" onclick="start()" style="display: none">Start</button>
-<button id="stop" style="display: none" onclick="stop()">Stop</button>
-<button id="stopRecord" style="display: none" onclick="stopRecord()">Stop Recording</button>
+<button id="start" class="show" onclick="start()" >Start WebRTC Session</button>
+<button id="record" class="hide" onclick="record()" >Start Recording</button>
+<button id="stopRecord" class="hide" onclick="stopRecord()">Stop Recording</button>
+<button id="stop" class="hide" onclick="stop()">Stop WebRTC Session</button>
 
 <div id="media">
-    <h2>Media</h2>
-
     <audio id="localAudio" autoplay="true"></audio>
     <audio id="remoteAudio" autoplay="true"></audio>
 </div>
