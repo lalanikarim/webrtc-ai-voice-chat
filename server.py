@@ -1,20 +1,22 @@
 import argparse
 import asyncio
-import datetime
+import copy
 import json
 import logging
 import os
 import ssl
 import time
 import uuid
-import librosa
-from transformers import WhisperProcessor, WhisperForConditionalGeneration
-from datetime import date
+from asyncio import create_task, Task
 
+import librosa
+from scipy.signal import resample
+
+import numpy as np
 from aiohttp import web
 from aiortc import RTCPeerConnection, RTCSessionDescription, MediaStreamTrack, RTCDataChannel
-from aiortc.contrib.media import MediaRecorder, MediaPlayer
-import os
+from av import AudioFrame
+from scipy.io import wavfile
 
 logger = logging.getLogger("pc")
 ROOT = os.path.dirname(__file__)
@@ -28,7 +30,12 @@ class State:
     pc: RTCPeerConnection
     dc: RTCDataChannel
     track: MediaStreamTrack
-    recorder: MediaRecorder
+    # recorder: MediaRecorder
+    buffer: list = []
+    recording: bool = False
+    task: Task
+    sample_rate: int = 16000
+    counter: int = 0
 
 
 state = State()
@@ -65,17 +72,35 @@ async def offer(request):
         if state.pc.iceConnectionState == "failed":
             await state.pc.close()
 
+    async def record():
+        track = state.track
+        log_info("Recording %s", state.filename)
+        while True:
+            frame: AudioFrame = await track.recv()
+            if state.recording:
+                buffer = frame.to_ndarray().flatten().astype(np.int16)
+                # check for silence
+                max_abs = np.max(np.abs(buffer))
+                if True or max_abs > 50:
+                    if state.sample_rate != frame.sample_rate * 2:
+                        state.sample_rate = frame.sample_rate * 2
+                    state.buffer.append(buffer)
+            await asyncio.sleep(0)
+
     @state.pc.on("track")
-    async def on_track(track):
+    async def on_track(track: MediaStreamTrack):
         log_info("Track %s received", track.kind)
 
         if track.kind == "audio":
             log_info("Received %s", track.kind)
             state.track = track
+            state.task = create_task(record())
 
         @track.on("ended")
         async def on_ended():
             log_info("Track %s ended", track.kind)
+            state.task.cancel()
+            track.stop()
 
     # handle offer
     await state.pc.setRemoteDescription(offer)
@@ -88,24 +113,33 @@ async def offer(request):
     async def on_datachannel(channel):
         log_info("DataChannel")
         state.dc = channel
-        state.dc.send("ready")
+
+        # state.dc.send("ready")
 
         @channel.on("message")
         async def on_message(message):
             log_info("Received message on channel: %s", message)
             if message == "start_recording":
-                log_info("Creating new recorder")
-                deleteFile(state.filename)
-                state.recorder = MediaRecorder(state.filename, "wav")
-                log_info("Adding track")
-                state.recorder.addTrack(state.track)
-                log_info("Starting recording")
-                await state.recorder.start()
-                channel.send("recording_started")
+                log_info("Start Recording")
+                state.buffer = []
+                state.recording = True
+                state.counter += 1
+                state.filename = f"{state.id}_{state.counter}.wav"
                 channel.send(time.time().__str__())
             if message == "stop_recording":
-                await state.recorder.stop()
-                channel.send("recording_stopped")
+                log_info("Stop Recording")
+                state.recording = False
+                await asyncio.sleep(0.5)
+                state.buffer = np.array(state.buffer).flatten()
+                log_info(f"Buffer Size: {len(state.buffer)}")
+                # write to file
+                data = copy.deepcopy(state.buffer)
+                data = librosa.util.buf_to_float(data)
+                state.buffer = []
+                if state.sample_rate != 16000:
+                    data = librosa.resample(data, orig_sr=state.sample_rate,
+                                            target_sr=16000)
+                wavfile.write(state.filename, 16000, data)
                 channel.send(time.time().__str__())
 
     return web.Response(
