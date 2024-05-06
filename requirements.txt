@@ -4,3 +4,9 @@ librosa~=0.10.2
 transformers~=4.40.1
 torch~=2.3.0
 torchaudio~=2.3.0
+numpy~=1.26.4
+scipy~=1.13.0
+av~=11.0.0
+langchain-core==0.1.50
+langchain-community==0.0.36
+

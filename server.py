@@ -8,20 +8,31 @@ import ssl
 import time
 import uuid
 from asyncio import create_task, Task
-
+from typing import List
+import scipy
 import librosa
-from scipy.signal import resample
-
 import numpy as np
 from aiohttp import web
 from aiortc import RTCPeerConnection, RTCSessionDescription, MediaStreamTrack, RTCDataChannel
 from av import AudioFrame
 from scipy.io import wavfile
+from transformers import WhisperProcessor, WhisperForConditionalGeneration
+from transformers import pipeline
+from chain import chain
 
 logger = logging.getLogger("pc")
 ROOT = os.path.dirname(__file__)
 
 pcs = set()
+
+# whisper
+speech_to_text_model_name = "openai/whisper-small"
+text_to_speech_model_name = "suno/bark-small"
+processor = WhisperProcessor.from_pretrained(speech_to_text_model_name)
+model = WhisperForConditionalGeneration.from_pretrained(speech_to_text_model_name)
+model.config.forced_decoder_ids = None
+# suno/bark
+synthesiser = pipeline("text-to-speech", text_to_speech_model_name)
 
 
 class State:
@@ -51,6 +62,10 @@ async def javascript(request):
     return web.Response(content_type="application/javascript", text=content)
 
 
+def log_info(msg, *args):
+    logger.info(state.id + " " + msg, *args)
+
+
 async def offer(request):
     params = await request.json()
 
@@ -60,9 +75,6 @@ async def offer(request):
     state.id = str(uuid.uuid4())
     state.filename = f"{state.id}.wav"
     pcs.add(state)
-
-    def log_info(msg, *args):
-        logger.info(state.id + " " + msg, *args)
 
     log_info("Created for %s", request.remote)
 
@@ -139,8 +151,16 @@ async def offer(request):
                 if state.sample_rate != 16000:
                     data = librosa.resample(data, orig_sr=state.sample_rate,
                                             target_sr=16000)
-                wavfile.write(state.filename, 16000, data)
-                channel.send(time.time().__str__())
+                # wavfile.write(state.filename, 16000, data)
+                # channel.send(time.time().__str__())
+                transcription = transcribe(data, channel)
+                log_info(transcription[0])
+                response = chain.invoke({"human_input":transcription[0]})
+                channel.send(response)
+                log_info(response)
+                # channel.send(time.time().__str__())
+                synthesize(response, channel)
+                #channel.send(time.time().__str__())
 
     return web.Response(
         content_type="application/json",
@@ -148,6 +168,32 @@ async def offer(request):
             {"sdp": state.pc.localDescription.sdp, "type": state.pc.localDescription.type}
         ),
     )
+
+
+def transcribe(data, channel: RTCDataChannel) -> List[str]:
+    log_info("Transcribing")
+    input_features = processor(data, sampling_rate=16000,
+                               return_tensors="pt").input_features
+    # generate token ids
+    predicted_ids = model.generate(input_features)
+    transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)
+    try:
+        channel.send(transcription[0])
+    finally:
+        pass
+    log_info("Ready")
+    return transcription
+
+
+def synthesize(text, channel: RTCDataChannel):
+    log_info("Synthesizing")
+    speech = synthesiser(f"{text}", forward_params={"do_sample": True})
+    wavfile.write("bark_out.wav", rate=speech["sampling_rate"], data=speech["audio"].T)
+    try:
+        channel.send("Synthesized")
+    finally:
+        pass
+    log_info("Ready")
 
 
 async def on_shutdown(app):
