@@ -71,6 +71,9 @@ function start() {
         if(ev.data === "ready") {
             record()
         }
+        else {
+            logmessage(ev.data)
+        }
     }
     state.dc.onclose = () => {
         console.log("Data channel is closed");
@@ -90,6 +93,10 @@ function start() {
     showElement(startRecordingButton)
     showElement(stopSessionButton)
     //document.querySelector('button#stop').style.display = 'inline-block';
+}
+function logmessage(message) {
+    let log = document.querySelector("ul#messages")
+    log.innerHTML = log.innerHTML + "<li>" + message + "</li>"
 }
 function getMedia(){
     const constraints = {

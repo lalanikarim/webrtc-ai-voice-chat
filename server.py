@@ -14,6 +14,7 @@ import librosa
 import numpy as np
 from aiohttp import web
 from aiortc import RTCPeerConnection, RTCSessionDescription, MediaStreamTrack, RTCDataChannel
+from aiortc.contrib.media import MediaPlayer
 from av import AudioFrame
 from scipy.io import wavfile
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
@@ -47,6 +48,7 @@ class State:
     task: Task
     sample_rate: int = 16000
     counter: int = 0
+    player: None
 
 
 state = State()
@@ -137,7 +139,6 @@ async def offer(request):
                 state.recording = True
                 state.counter += 1
                 state.filename = f"{state.id}_{state.counter}.wav"
-                channel.send(time.time().__str__())
             if message == "stop_recording":
                 log_info("Stop Recording")
                 state.recording = False
@@ -156,11 +157,9 @@ async def offer(request):
                 transcription = transcribe(data, channel)
                 log_info(transcription[0])
                 response = chain.invoke({"human_input":transcription[0]})
-                channel.send(response)
                 log_info(response)
-                # channel.send(time.time().__str__())
-                synthesize(response, channel)
-                #channel.send(time.time().__str__())
+                await asyncio.sleep(0.1)
+                await synthesize(response, channel)
 
     return web.Response(
         content_type="application/json",
@@ -177,22 +176,20 @@ def transcribe(data, channel: RTCDataChannel) -> List[str]:
     # generate token ids
     predicted_ids = model.generate(input_features)
     transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)
-    try:
-        channel.send(transcription[0])
-    finally:
-        pass
+    channel.send(f"Human: {transcription[0]}")
     log_info("Ready")
     return transcription
 
 
-def synthesize(text, channel: RTCDataChannel):
+async def synthesize(text, channel: RTCDataChannel):
     log_info("Synthesizing")
+    channel.send(f"AI: {text}")
+    await asyncio.sleep(0.1)
     speech = synthesiser(f"{text}", forward_params={"do_sample": True})
     wavfile.write("bark_out.wav", rate=speech["sampling_rate"], data=speech["audio"].T)
-    try:
-        channel.send("Synthesized")
-    finally:
-        pass
+    log_info("Synthesized")
+    player = MediaPlayer("bark_out.wav")
+    state.pc.addTrack(player.audio)
     log_info("Ready")
 
 
