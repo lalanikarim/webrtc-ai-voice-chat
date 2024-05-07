@@ -31,7 +31,7 @@ device = "cuda:0" if torch.cuda.is_available() else "cpu"
 # whisper
 speech_to_text_model_name = "openai/whisper-small"
 text_to_speech_model_name = "suno/bark-small"
-processor = WhisperProcessor.from_pretrained(speech_to_text_model_name)
+processor = WhisperProcessor.from_pretrained(speech_to_text_model_name, device=device)
 model = WhisperForConditionalGeneration.from_pretrained(speech_to_text_model_name).to(device)
 model.config.forced_decoder_ids = None
 # suno/bark
