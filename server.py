@@ -31,7 +31,7 @@ device = "cuda:0" if torch.cuda.is_available() else "cpu"
 # whisper
 speech_to_text_model_name = "openai/whisper-small"
 text_to_speech_model_name = "suno/bark-small"
-processor = WhisperProcessor.from_pretrained(speech_to_text_model_name, device=device)
+processor = WhisperProcessor.from_pretrained(speech_to_text_model_name)
 model = WhisperForConditionalGeneration.from_pretrained(speech_to_text_model_name).to(device)
 model.config.forced_decoder_ids = None
 # suno/bark
@@ -220,6 +220,8 @@ def transcribe(data, channel: RTCDataChannel) -> List[str]:
     log_info("Transcribing")
     input_features = processor(data, sampling_rate=16000,
                                return_tensors="pt").input_features
+    if device != "cpu":
+        input_features = input_features.to("cuda", torch.float32)
     # generate token ids
     predicted_ids = model.generate(input_features)
     transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)
