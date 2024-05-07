@@ -2,7 +2,7 @@ from typing import List
 
 import torch
 from scipy.io import wavfile
-from transformers import WhisperProcessor, WhisperForConditionalGeneration, AutoProcessor, BarkModel, pipeline
+from transformers import WhisperProcessor, WhisperForConditionalGeneration, AutoProcessor, BarkModel
 
 
 class AudioUtils:
@@ -31,7 +31,7 @@ class AudioUtils:
         return transcription
 
     def synthesize(self, text):
-        input_features = self.synthesiser(f"{text}", voice_preset=self.voice_preset)
+        input_features = self.synthesiser(f"{text}", voice_preset=self.voice_preset).to(self.device)
         audio_array = self.tta_model.generate(**input_features)
         if self.device != "cpu":
             audio_array = audio_array.to(self.device, torch.float32)
