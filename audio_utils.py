@@ -11,7 +11,7 @@ class AudioUtils:
         # whisper
         self.speech_to_text_model_name = speech_to_text_model  # "openai/whisper-small"
         self.text_to_speech_model_name = text_to_speech_model  # "suno/bark-small"
-        self.processor = WhisperProcessor.from_pretrained(self.speech_to_text_model_name, device=self.device)
+        self.processor = WhisperProcessor.from_pretrained(self.speech_to_text_model_name)
         self.model = WhisperForConditionalGeneration.from_pretrained(self.speech_to_text_model_name).to(self.device)
         self.model.config.forced_decoder_ids = None
         # suno/bark
@@ -20,6 +20,8 @@ class AudioUtils:
     def transcribe(self, data) -> List[str]:
         input_features = self.processor(data, sampling_rate=16000,
                                         return_tensors="pt").input_features
+        if self.device != "cpu":
+            input_features = input_features.to(self.device, torch.float32)
         # generate token ids
         predicted_ids = self.model.generate(input_features)
         transcription = self.processor.batch_decode(predicted_ids, skip_special_tokens=True)
