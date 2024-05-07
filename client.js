@@ -129,15 +129,18 @@ function logmessage(message) {
     let log = document.querySelector("div.conversation-container")
     let splits = message.split(": ")
     if (splits.length > 1) {
-        let newMessage = document.createElement("div")
-        newMessage.classList.add("message")
-        if (splits[0] === "AI") {
-            newMessage.classList.add("received")
-        } else {
-            newMessage.classList.add("sent")
+        let messageText = splits.slice(1).join(": ")
+        if (messageText.trim().length > 0) {
+            let newMessage = document.createElement("div")
+            newMessage.classList.add("message")
+            if (splits[0] === "AI") {
+                newMessage.classList.add("received")
+            } else {
+                newMessage.classList.add("sent")
+            }
+            newMessage.textContent = messageText
+            log.appendChild(newMessage)
         }
-        newMessage.textContent = splits.slice(1).join(": ")
-        log.appendChild(newMessage)
     }
 }
 function getMedia(){
