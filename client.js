@@ -4,12 +4,25 @@ let state = {
     stream:null,
 }
 
-let startSessionButton = document.querySelector("button#start");
-let startRecordingButton = document.querySelector("button#record");
-let stopRecordingButton = document.querySelector("button#stopRecord");
-let stopSessionButton = document.querySelector("button#stop");
-let labelPresets = document.querySelector("label#labelPresets");
-let labelModels = document.querySelector("label#labelModels");
+let connectionStatus = document.querySelector("span#connectionStatus")
+let wave = document.querySelector("div.wave")
+let processing = document.querySelector("div.processing")
+let messagesContainer =  document.querySelector("div#messagesContainer")
+let chatNameContainer = document.querySelector("div.chat-container .user-bar .name")
+let powerButton =  document.querySelector("button#power")
+let presetsSelect = document.querySelector("select#presets")
+let modelsSelect = document.querySelector("select#models")
+let startRecordDiv = document.querySelector("div.circle.start")
+let stopRecordDiv = document.querySelector("div.circle.stop")
+let waitRecordDiv = document.querySelector("div.circle.wait")
+
+function getcconnectionstatus() {
+    let status = "closed"
+    if (state.pc) {
+        status = state.pc.connectionState
+    }
+    connectionStatus.textContent = status
+}
 
 function negotiate() {
     //pc.addTransceiver('audio', { direction: 'sendrecv' });
@@ -63,6 +76,9 @@ function start() {
     }
 
     state.pc = new RTCPeerConnection(config);
+    state.pc.onconnectionstatechange = (ev) => {
+        getcconnectionstatus()
+    }
     state.dc = state.pc.createDataChannel("chat")
     state.dc.onopen = (ev) => {
         console.log("Data channel is open and ready to use");
@@ -73,8 +89,18 @@ function start() {
         if(ev.data === "ready") {
             record()
         }
-        else {
+        if(ev.data.startsWith("Human:") || ev.data.startsWith("AI:")) {
             logmessage(ev.data)
+        }
+        if(ev.data.startsWith("playing:")) {
+            if(!ev.data.endsWith("silence")) {
+                hideElement(processing)
+                showElement(wave)
+            } else {
+                hideElement(wave)
+                hideElement(waitRecordDiv)
+                showElement(startRecordDiv)
+            }
         }
     }
     state.dc.onclose = () => {
@@ -91,16 +117,28 @@ function start() {
     // document.querySelector('button#start').style.display = 'none';
     //negotiate()
     getMedia()
-    hideElement(startSessionButton)
-    showElement(startRecordingButton)
-    showElement(stopSessionButton)
-    showElement(labelPresets)
-    showElement(labelModels)
+    showElement(chatNameContainer)
+    showElement(presetsSelect)
+    showElement(modelsSelect)
+    showElement(messagesContainer)
+    showElement(startRecordDiv)
+    hideElement(waitRecordDiv)
     //document.querySelector('button#stop').style.display = 'inline-block';
 }
 function logmessage(message) {
-    let log = document.querySelector("ul#messages")
-    log.innerHTML = log.innerHTML + "<li>" + message + "</li>"
+    let log = document.querySelector("div.conversation-container")
+    let splits = message.split(": ")
+    if (splits.length > 1) {
+        let newMessage = document.createElement("div")
+        newMessage.classList.add("message")
+        if (splits[0] === "AI") {
+            newMessage.classList.add("received")
+        } else {
+            newMessage.classList.add("sent")
+        }
+        newMessage.textContent = splits.slice(1).join(": ")
+        log.appendChild(newMessage)
+    }
 }
 function getMedia(){
     const constraints = {
@@ -114,32 +152,34 @@ function getMedia(){
 }
 
 function stop() {
-    hideElement(stopSessionButton)
-    hideElement(startRecordingButton)
-    hideElement(labelPresets)
-    hideElement(labelModels)
-    showElement(startSessionButton)
+    hideElement(startRecordDiv)
+    showElement(waitRecordDiv)
+    hideElement(chatNameContainer)
+    hideElement(presetsSelect)
+    hideElement(modelsSelect)
     if(state.pc) {
         // close peer connection
         setTimeout(() => {
             state.pc.close();
+            getcconnectionstatus()
+            state = {pc:null, dc:null, stream:null}
         }, 500);
     }
 }
 
 function record(){
-    hideElement(startRecordingButton)
-    showElement(stopRecordingButton)
-    hideElement(stopSessionButton)
+    hideElement(wave)
+    hideElement(startRecordDiv)
+    showElement(stopRecordDiv)
     //getMedia()
     state.dc.send("start_recording")
 }
 
 function stopRecord() {
-    hideElement(stopRecordingButton)
-    showElement(startRecordingButton)
-    showElement(stopSessionButton)
     state.dc.send("stop_recording")
+    showElement(processing)
+    hideElement(stopRecordDiv)
+    showElement(waitRecordDiv)
 }
 function getResponse(){
     state.dc.send("get_response")
@@ -162,12 +202,10 @@ function handleFailure(error) {
 }
 
 function showElement(element) {
-    element.classList.remove("hide")
-    element.classList.add("show")
+    element.classList.remove("d-none")
 }
 function hideElement(element) {
-    element.classList.remove("show")
-    element.classList.add("hide")
+    element.classList.add("d-none")
 }
 
 function changePreset(){
@@ -177,4 +215,20 @@ function changePreset(){
 function changeModel() {
     let model = document.querySelector("select#models").value
     state.dc.send("model:" + model)
+    chatNameContainer.textContent = model
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    getcconnectionstatus()
+    powerButton.onclick = () => {
+        if(state.pc && state.pc.connectionState === "connected") {
+            stop()
+            powerButton.classList.remove("text-danger")
+            powerButton.classList.add("text-success")
+        } else {
+            start()
+            powerButton.classList.remove("text-success")
+            powerButton.classList.add("text-danger")
+        }
+    }
+})

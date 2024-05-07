@@ -1,0 +1,400 @@
+@import url(https://fonts.googleapis.com/css?family=Montserrat);
+@import url(https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/css/bootstrap.min.css);
+
+:root {
+    --loader-color: #005e54;
+}
+
+div#recordingControls {
+  min-height: 55px;
+}
+
+div.wave {
+   display:flex;
+  justify-content:center;
+  align-items:center;
+}
+
+.wave ul {
+  /* background: rgba(0, 0, 0, 0.8);*/
+  width:200px;
+  height:45px;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  padding:0;
+  margin:0;
+  transition:ease 0.2s;
+  position:relative;
+}
+
+.wave ul li{
+  list-style:none;
+  height:20px;
+  width:4px;
+  border-radius:10px;
+  background: var(--loader-color);
+  margin:0 3px;
+  padding:0;
+  animation-name: wave4;
+  animation-duration: 0.3s;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  transition:ease 0.2s;
+}
+
+.wave ul li:nth-child(2) {
+    animation-name: wave2;
+    animation-delay:0.2s;
+}
+.wave ul li:nth-child(3) {
+    animation-name: wave3;
+  animation-delay:0.23s;
+  animation-duration: 0.4s;
+}
+.wave ul li:nth-child(4) {
+    animation-name: wave4;
+    animation-delay:0.1s;
+  animation-duration: 0.3s;
+}
+.wave ul li:nth-child(5) {
+  animation-delay:0.5s;
+}
+.wave ul li:nth-child(6) {
+    animation-name: wave2;
+  animation-duration: 0.5s;
+}
+.wave ul li:nth-child(8) {
+    animation-name: wave4;
+  animation-delay:0.4s;
+  animation-duration: 0.25s;
+}
+.wave ul li:nth-child(9) {
+    animation-name: wave3;
+  animation-delay:0.15s;
+}
+.wave ul li:nth-child(10) {
+  animation-delay:0.5s;
+}
+.wave ul li:nth-child(11) {
+    animation-name: wave2;
+  animation-duration: 0.5s;
+}
+.wave ul li:nth-child(12) {
+    animation-name: wave3;
+  animation-delay:0.4s;
+  animation-duration: 0.25s;
+}
+.wave ul li:nth-child(13) {
+    animation-name: wave4;
+  animation-delay:0.15s;
+}
+.wave ul li:nth-child(14) {
+    animation-name: wave4;
+
+  animation-duration: 0.5s;
+}
+.wave ul li:nth-child(15) {
+    animation-name: wave4;
+  animation-delay:0.1s;
+  animation-duration: 0.5s;
+}
+
+@keyframes wave1 {
+    from {transform:scaleY(1);}
+    to {transform:scaleY(0.5);}
+}
+@keyframes wave2 {
+    from {transform:scaleY(0.3);}
+    to {transform:scaleY(0.6);}
+}
+@keyframes wave3 {
+    from {transform:scaleY(0.6);}
+    to {transform:scaleY(0.8);}
+}
+@keyframes wave4 {
+    from {transform:scaleY(0.2);}
+    to {transform:scaleY(0.5);}
+}
+
+.user-bar {
+  height: 55px;
+  background: #005e54;
+  color: #fff;
+  padding: 0 8px;
+  font-size: 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.user-bar:after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+.user-bar div {
+  float: left;
+  transform: translateY(-50%);
+  position: relative;
+  top: 50%;
+}
+
+.user-bar .actions {
+  float: right;
+  margin: 0 0 0 20px;
+}
+
+.user-bar .actions.more {
+  margin: 0 12px 0 32px;
+}
+
+.user-bar .actions.attachment {
+  margin: 0 0 0 30px;
+}
+
+.user-bar .actions.attachment i {
+  display: block;
+  transform: rotate(-45deg);
+}
+
+.user-bar .avatar {
+  margin: 0 0 0 5px;
+  width: 36px;
+  height: 36px;
+}
+
+.user-bar .avatar img {
+  border-radius: 50%;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1);
+  display: block;
+  width: 100%;
+}
+
+.user-bar .name {
+  font-size: 17px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  letter-spacing: 0.3px;
+  margin: 0 0 0 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  width: 110px;
+}
+
+.user-bar .status {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.conversation {
+  height: calc(100% - 12px);
+  position: relative;
+  background: #efe7dd;
+  z-index: 0;
+}
+
+.conversation ::-webkit-scrollbar {
+  transition: all .5s;
+  width: 5px;
+  height: 1px;
+  z-index: 10;
+}
+
+.conversation ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.conversation ::-webkit-scrollbar-thumb {
+  background: #b3ada7;
+}
+
+.conversation .conversation-container {
+  overflow-x: hidden;
+  padding: 0 16px;
+  margin-bottom: 5px;
+  height: calc(100% - 68px);
+  min-height: 100px;
+}
+.message {
+  color: #000;
+  clear: both;
+  line-height: 18px;
+  font-size: 15px;
+  padding: 8px;
+  position: relative;
+  margin: 8px 0;
+  max-width: 85%;
+  word-wrap: break-word;
+  z-index: -1;
+}
+
+.message:after {
+  position: absolute;
+  content: "";
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+.message:first-child {
+  margin: 16px 0 8px;
+}
+
+.message.received {
+  background: #fff;
+  border-radius: 0px 5px 5px 5px;
+  float: left;
+}
+
+.message.received:after {
+  border-width: 0px 10px 10px 0;
+  border-color: transparent #fff transparent transparent;
+  top: 0;
+  left: -10px;
+}
+
+.message.sent {
+  background: #e1ffc7;
+  border-radius: 5px 0px 5px 5px;
+  float: right;
+}
+
+.message.sent:after {
+  border-width: 0px 0 10px 10px;
+  border-color: transparent transparent transparent #e1ffc7;
+  top: 0;
+  right: -10px;
+}
+
+.conversation-compose {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  overflow: hidden;
+  height: 50px;
+  width: 100%;
+  z-index: 2;
+}
+
+.conversation-compose div:not(.processing),
+.conversation-compose input {
+  background: #fff;
+  height: 100%;
+}
+.conversation-compose .emoji {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 5px 0 0 5px;
+  flex: 0 0 auto;
+  margin-left: 8px;
+  width: 48px;
+}
+
+.conversation-compose .input-msg {
+  border: 0;
+  flex: 1 1 auto;
+  font-size: 16px;
+  margin: 0;
+  outline: none;
+  min-width: 50px;
+}
+
+.conversation-compose .photo {
+  flex: 0 0 auto;
+  border-radius: 0 0 5px 0;
+  text-align: center;
+  position: relative;
+  width: 48px;
+}
+
+.conversation-compose .photo:after {
+  border-width: 0px 0 10px 10px;
+  border-color: transparent transparent transparent #fff;
+  border-style: solid;
+  position: absolute;
+  width: 0;
+  height: 0;
+  content: "";
+  top: 0;
+  right: -10px;
+}
+
+.conversation-compose .photo i {
+  display: block;
+  color: #7d8488;
+  font-size: 24px;
+  transform: translate(-50%, -50%);
+  position: relative;
+  top: 50%;
+  left: 50%;
+}
+
+.conversation-compose .send {
+  background: transparent !important;
+  border: 0;
+  cursor: pointer;
+  flex: 0 0 auto;
+  margin-left: 8px;
+  margin-right: 8px;
+  padding: 0;
+  position: relative;
+  outline: none;
+}
+
+.conversation-compose .send .circle {
+  border-radius: 50%;
+  color: #fff;
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.conversation-compose .send .circle.start {
+  background: #008a7c;
+}
+.conversation-compose .send .circle.stop {
+  background: #fb283b;
+}
+
+.conversation-compose .send .circle.wait {
+  background: gray;
+}
+
+.conversation-compose .send .circle i {
+  font-size: 24px;
+}
+
+.conversation .status {
+  display: flex;
+  justify-content: center;
+  font-size: 13px;
+}
+
+.conversation .status div {
+  background-color: white;
+  border-radius: 5px;
+  margin: 5px;
+  padding: 0 5px;
+}
+/* HTML: <div class="loader"></div> */
+.processing {
+  width: 120px;
+  height: 20px;
+  margin-top: 10px;
+  -webkit-mask: linear-gradient(90deg,#000 70%,#0000 0) left/20% 100%;
+  background:
+          linear-gradient(var(--loader-color) 0 0) left -25% top 0 /20% 100% no-repeat
+          #ddd;
+  animation: l7 1s infinite steps(6);
+}
+@keyframes l7 {
+  100% {background-position: right -25% top 0}
+}
+
