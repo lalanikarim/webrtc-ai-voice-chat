@@ -40,6 +40,27 @@
 <button id="stopRecord" class="hide" onclick="stopRecord()">Stop Recording</button>
 <button id="stop" class="hide" onclick="stop()">Stop WebRTC Session</button>
 
+<label id="labelPresets" class="hide">Change Voice Preset:
+<select id="presets" onchange="changePreset()">
+    <option>v2/en_speaker_0</option>
+    <option>v2/en_speaker_1</option>
+    <option>v2/en_speaker_2</option>
+    <option>v2/en_speaker_3</option>
+    <option>v2/en_speaker_4</option>
+    <option>v2/en_speaker_5</option>
+    <option>v2/en_speaker_6</option>
+    <option>v2/en_speaker_7</option>
+    <option>v2/en_speaker_8</option>
+    <option>v2/en_speaker_9</option>
+</select>
+</label>
+<label id="labelModels" class="hide">Change LLM:
+<select id="models" onchange="changeModel()">
+    <option>phi3</option>
+    <option>mistral</option>
+    <option>llama3</option>
+</select>
+</label>
 <div id="media">
     <audio id="remoteAudio" autoplay="true" controls="true"></audio>
 </div>

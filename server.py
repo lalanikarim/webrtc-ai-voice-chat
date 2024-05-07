@@ -11,7 +11,7 @@ from aiortc import RTCSessionDescription, MediaStreamTrack
 from av import AudioFrame
 
 from audio_utils import AudioUtils
-from chain import chain
+from chain import Chain
 from state import State
 
 logger = logging.getLogger("pc")
@@ -21,6 +21,7 @@ pcs = set()
 
 audio_utils = AudioUtils()
 
+chain = Chain()
 
 async def index(request):
     content = open(os.path.join(ROOT, "index.html"), "r").read()
@@ -108,7 +109,7 @@ async def offer(request):
                 channel.send(f"Human: {transcription[0]}")
                 state.log_info(transcription[0])
                 await asyncio.sleep(0)
-                response = chain.invoke({"human_input": transcription[0]})
+                response = chain.get_model().invoke({"human_input": transcription[0]})
                 response = response.split("\n")[0]
                 channel.send(f"AI: {response}")
                 state.log_info(response)
@@ -116,6 +117,14 @@ async def offer(request):
                 audio_utils.synthesize(response)
                 state.response_player.response_ready = True
                 await asyncio.sleep(0)
+            if message[0:7] == "preset:":
+                preset = message[7:]
+                audio_utils.voice_preset = preset
+                state.log_info("Changed voice preset to %s", preset)
+            if message[0:6] == "model:":
+                model = message[6:]
+                chain.change_model(model)
+                state.log_info("Changed model to %s", model)
 
     return web.Response(
         content_type="application/json",

@@ -8,6 +8,8 @@ let startSessionButton = document.querySelector("button#start");
 let startRecordingButton = document.querySelector("button#record");
 let stopRecordingButton = document.querySelector("button#stopRecord");
 let stopSessionButton = document.querySelector("button#stop");
+let labelPresets = document.querySelector("label#labelPresets");
+let labelModels = document.querySelector("label#labelModels");
 
 function negotiate() {
     //pc.addTransceiver('audio', { direction: 'sendrecv' });
@@ -92,6 +94,8 @@ function start() {
     hideElement(startSessionButton)
     showElement(startRecordingButton)
     showElement(stopSessionButton)
+    showElement(labelPresets)
+    showElement(labelModels)
     //document.querySelector('button#stop').style.display = 'inline-block';
 }
 function logmessage(message) {
@@ -112,6 +116,8 @@ function getMedia(){
 function stop() {
     hideElement(stopSessionButton)
     hideElement(startRecordingButton)
+    hideElement(labelPresets)
+    hideElement(labelModels)
     showElement(startSessionButton)
     if(state.pc) {
         // close peer connection
@@ -162,4 +168,13 @@ function showElement(element) {
 function hideElement(element) {
     element.classList.remove("show")
     element.classList.add("hide")
+}
+
+function changePreset(){
+    let preset = document.querySelector("select#presets").value
+    state.dc.send("preset:" + preset)
+}
+function changeModel() {
+    let model = document.querySelector("select#models").value
+    state.dc.send("model:" + model)
 }
