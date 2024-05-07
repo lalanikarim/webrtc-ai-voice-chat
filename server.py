@@ -5,11 +5,10 @@ import json
 import logging
 import os
 import ssl
-import time
 import uuid
-from asyncio import create_task, Task
+from asyncio import create_task, Task, Queue
 from typing import List
-import scipy
+
 import librosa
 import numpy as np
 from aiohttp import web
@@ -19,6 +18,7 @@ from av import AudioFrame
 from scipy.io import wavfile
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
 from transformers import pipeline
+
 from chain import chain
 
 logger = logging.getLogger("pc")
@@ -36,6 +36,45 @@ model.config.forced_decoder_ids = None
 synthesiser = pipeline("text-to-speech", text_to_speech_model_name)
 
 
+class PlaybackStreamTrack(MediaStreamTrack):
+    kind = "audio"
+    response_ready: bool = False
+    frames: Queue = Queue()
+    track: MediaStreamTrack = None
+    counter: int = 0
+    time: float = 0.0
+
+    def __init__(self):
+        super().__init__()  # don't forget this!
+
+    def select_track(self):
+        if self.response_ready:
+            print("Response")
+            self.track = MediaPlayer("bark_out.wav", format="wav", loop=False).audio
+        else:
+            print("Silence")
+            self.track = MediaPlayer("silence.wav", format="wav", loop=False).audio
+
+    async def recv(self):
+        self.counter += 1
+        if self.track is None:
+            self.select_track()
+        try:
+            async with asyncio.timeout(1):
+                frame = await self.track.recv()
+        except Exception as e:
+            print("Switching", e)
+            self.select_track()
+            if self.response_ready:
+                self.response_ready = False
+            frame = await self.track.recv()
+
+        if frame.pts < frame.sample_rate * self.time:
+            frame.pts = frame.sample_rate * self.time
+        self.time += 0.02
+        return frame
+
+
 class State:
     id: str
     filename: str
@@ -48,7 +87,7 @@ class State:
     task: Task
     sample_rate: int = 16000
     counter: int = 0
-    player: None
+    response_player: PlaybackStreamTrack = PlaybackStreamTrack()
 
 
 state = State()
@@ -79,6 +118,8 @@ async def offer(request):
     pcs.add(state)
 
     log_info("Created for %s", request.remote)
+
+    state.pc.addTrack(state.response_player)
 
     @state.pc.on("iceconnectionstatechange")
     async def on_iceconnectionstatechange():
@@ -133,8 +174,13 @@ async def offer(request):
         @channel.on("message")
         async def on_message(message):
             log_info("Received message on channel: %s", message)
+            if message == "get_response":
+                state.response_player.response_ready = True
+            if message == "get_silence":
+                state.response_player.response_ready = False
             if message == "start_recording":
                 log_info("Start Recording")
+                state.response_player.response_ready = False
                 state.buffer = []
                 state.recording = True
                 state.counter += 1
@@ -156,10 +202,12 @@ async def offer(request):
                 # channel.send(time.time().__str__())
                 transcription = transcribe(data, channel)
                 log_info(transcription[0])
-                response = chain.invoke({"human_input":transcription[0]})
+                response = chain.invoke({"human_input": transcription[0]})
+                response = response.split("\n")[0]
                 log_info(response)
                 await asyncio.sleep(0.1)
                 await synthesize(response, channel)
+                state.response_player.response_ready = True
 
     return web.Response(
         content_type="application/json",
@@ -188,9 +236,6 @@ async def synthesize(text, channel: RTCDataChannel):
     speech = synthesiser(f"{text}", forward_params={"do_sample": True})
     wavfile.write("bark_out.wav", rate=speech["sampling_rate"], data=speech["audio"].T)
     log_info("Synthesized")
-    player = MediaPlayer("bark_out.wav")
-    state.pc.addTrack(player.audio)
-    log_info("Ready")
 
 
 async def on_shutdown(app):

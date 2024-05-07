@@ -9,7 +9,8 @@ Only answer in short one or two sentences.
 Do not answer with a question.
 
 Human: {human_input}
-AI: """)
+AI: 
+""")
 
 chat_model = ChatOllama(model="phi3:latest")
 

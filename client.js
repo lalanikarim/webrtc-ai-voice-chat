@@ -135,6 +135,12 @@ function stopRecord() {
     showElement(stopSessionButton)
     state.dc.send("stop_recording")
 }
+function getResponse(){
+    state.dc.send("get_response")
+}
+function getSilence(){
+    state.dc.send("get_silence")
+}
 function handleSuccess(stream) {
     const tracks = stream.getAudioTracks()
     console.log("Received: ", tracks.length, " tracks")
