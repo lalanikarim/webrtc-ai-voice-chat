@@ -18,6 +18,7 @@ from av import AudioFrame
 from scipy.io import wavfile
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
 from transformers import pipeline
+import torch
 
 from chain import chain
 
@@ -26,14 +27,15 @@ ROOT = os.path.dirname(__file__)
 
 pcs = set()
 
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
 # whisper
 speech_to_text_model_name = "openai/whisper-small"
 text_to_speech_model_name = "suno/bark-small"
 processor = WhisperProcessor.from_pretrained(speech_to_text_model_name)
-model = WhisperForConditionalGeneration.from_pretrained(speech_to_text_model_name)
+model = WhisperForConditionalGeneration.from_pretrained(speech_to_text_model_name).to(device)
 model.config.forced_decoder_ids = None
 # suno/bark
-synthesiser = pipeline("text-to-speech", text_to_speech_model_name)
+synthesiser = pipeline("text-to-speech", text_to_speech_model_name, device=device)
 
 
 class PlaybackStreamTrack(MediaStreamTrack):
@@ -49,10 +51,8 @@ class PlaybackStreamTrack(MediaStreamTrack):
 
     def select_track(self):
         if self.response_ready:
-            print("Response")
             self.track = MediaPlayer("bark_out.wav", format="wav", loop=False).audio
         else:
-            print("Silence")
             self.track = MediaPlayer("silence.wav", format="wav", loop=False).audio
 
     async def recv(self):
@@ -63,7 +63,6 @@ class PlaybackStreamTrack(MediaStreamTrack):
             async with asyncio.timeout(1):
                 frame = await self.track.recv()
         except Exception as e:
-            print("Switching", e)
             self.select_track()
             if self.response_ready:
                 self.response_ready = False
