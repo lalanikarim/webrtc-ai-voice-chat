@@ -1,58 +1,25 @@
 import argparse
 import asyncio
-import copy
 import json
 import logging
 import os
 import ssl
-import uuid
-from asyncio import create_task, Task
-from typing import List
+from asyncio import create_task
 
-import librosa
-import numpy as np
-import torch
 from aiohttp import web
-from aiortc import RTCPeerConnection, RTCSessionDescription, MediaStreamTrack, RTCDataChannel
+from aiortc import RTCSessionDescription, MediaStreamTrack
 from av import AudioFrame
-from scipy.io import wavfile
-from transformers import WhisperProcessor, WhisperForConditionalGeneration
-from transformers import pipeline
 
+from audio_utils import AudioUtils
 from chain import chain
-from playback_stream_track import PlaybackStreamTrack
+from state import State
 
 logger = logging.getLogger("pc")
 ROOT = os.path.dirname(__file__)
 
 pcs = set()
 
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
-# whisper
-speech_to_text_model_name = "openai/whisper-small"
-text_to_speech_model_name = "suno/bark-small"
-processor = WhisperProcessor.from_pretrained(speech_to_text_model_name, device=device)
-model = WhisperForConditionalGeneration.from_pretrained(speech_to_text_model_name).to(device)
-model.config.forced_decoder_ids = None
-# suno/bark
-synthesiser = pipeline("text-to-speech", text_to_speech_model_name, device=device)
-
-
-class State:
-    id: str
-    filename: str
-    pc: RTCPeerConnection
-    dc: RTCDataChannel
-    track: MediaStreamTrack
-    buffer: list = []
-    recording: bool = False
-    task: Task
-    sample_rate: int = 16000
-    counter: int = 0
-    response_player: PlaybackStreamTrack = PlaybackStreamTrack()
-
-
-state = State()
+audio_utils = AudioUtils()
 
 
 async def index(request):
@@ -65,57 +32,45 @@ async def javascript(request):
     return web.Response(content_type="application/javascript", text=content)
 
 
-def log_info(msg, *args):
-    logger.info(state.id + " " + msg, *args)
-
-
 async def offer(request):
     params = await request.json()
 
     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
 
-    state.pc = RTCPeerConnection()
-    state.id = str(uuid.uuid4())
-    state.filename = f"{state.id}.wav"
+    state = State()
     pcs.add(state)
 
-    log_info("Created for %s", request.remote)
+    state.log_info("Created for %s", request.remote)
 
     state.pc.addTrack(state.response_player)
 
     @state.pc.on("iceconnectionstatechange")
     async def on_iceconnectionstatechange():
-        log_info("ICE connection state is %s", state.pc.iceConnectionState)
+        state.log_info("ICE connection state is %s", state.pc.iceConnectionState)
         if state.pc.iceConnectionState == "failed":
             await state.pc.close()
 
     async def record():
         track = state.track
-        log_info("Recording %s", state.filename)
+        state.log_info("Recording %s", state.filename)
         while True:
             frame: AudioFrame = await track.recv()
             if state.recording:
-                buffer = frame.to_ndarray().flatten().astype(np.int16)
-                # check for silence
-                max_abs = np.max(np.abs(buffer))
-                if True or max_abs > 50:
-                    if state.sample_rate != frame.sample_rate * 2:
-                        state.sample_rate = frame.sample_rate * 2
-                    state.buffer.append(buffer)
+                state.append_frame(frame)
             await asyncio.sleep(0)
 
     @state.pc.on("track")
     async def on_track(track: MediaStreamTrack):
-        log_info("Track %s received", track.kind)
+        state.log_info("Track %s received", track.kind)
 
         if track.kind == "audio":
-            log_info("Received %s", track.kind)
+            state.log_info("Received %s", track.kind)
             state.track = track
             state.task = create_task(record())
 
         @track.on("ended")
         async def on_ended():
-            log_info("Track %s ended", track.kind)
+            state.log_info("Track %s ended", track.kind)
             state.task.cancel()
             track.stop()
 
@@ -128,48 +83,39 @@ async def offer(request):
 
     @state.pc.on("datachannel")
     async def on_datachannel(channel):
-        log_info("DataChannel")
-        state.dc = channel
-
-        # state.dc.send("ready")
+        state.log_info("DataChannel")
 
         @channel.on("message")
         async def on_message(message):
-            log_info("Received message on channel: %s", message)
+            state.log_info("Received message on channel: %s", message)
             if message == "get_response":
                 state.response_player.response_ready = True
             if message == "get_silence":
                 state.response_player.response_ready = False
             if message == "start_recording":
-                log_info("Start Recording")
+                state.log_info("Start Recording")
                 state.response_player.response_ready = False
                 state.buffer = []
                 state.recording = True
                 state.counter += 1
                 state.filename = f"{state.id}_{state.counter}.wav"
             if message == "stop_recording":
-                log_info("Stop Recording")
+                state.log_info("Stop Recording")
                 state.recording = False
                 await asyncio.sleep(0.5)
-                state.buffer = np.array(state.buffer).flatten()
-                log_info(f"Buffer Size: {len(state.buffer)}")
-                # write to file
-                data = copy.deepcopy(state.buffer)
-                data = librosa.util.buf_to_float(data)
-                state.buffer = []
-                if state.sample_rate != 16000:
-                    data = librosa.resample(data, orig_sr=state.sample_rate,
-                                            target_sr=16000)
-                # wavfile.write(state.filename, 16000, data)
-                # channel.send(time.time().__str__())
-                transcription = transcribe(data, channel)
-                log_info(transcription[0])
+                data = state.flush_audio()
+                transcription = audio_utils.transcribe(data)
+                channel.send(f"Human: {transcription[0]}")
+                state.log_info(transcription[0])
+                await asyncio.sleep(0)
                 response = chain.invoke({"human_input": transcription[0]})
                 response = response.split("\n")[0]
-                log_info(response)
-                await asyncio.sleep(0.1)
-                await synthesize(response, channel)
+                channel.send(f"AI: {response}")
+                state.log_info(response)
+                await asyncio.sleep(0)
+                audio_utils.synthesize(response)
                 state.response_player.response_ready = True
+                await asyncio.sleep(0)
 
     return web.Response(
         content_type="application/json",
@@ -177,27 +123,6 @@ async def offer(request):
             {"sdp": state.pc.localDescription.sdp, "type": state.pc.localDescription.type}
         ),
     )
-
-
-def transcribe(data, channel: RTCDataChannel) -> List[str]:
-    log_info("Transcribing")
-    input_features = processor(data, sampling_rate=16000,
-                               return_tensors="pt").input_features
-    # generate token ids
-    predicted_ids = model.generate(input_features)
-    transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)
-    channel.send(f"Human: {transcription[0]}")
-    log_info("Ready")
-    return transcription
-
-
-async def synthesize(text, channel: RTCDataChannel):
-    log_info("Synthesizing")
-    channel.send(f"AI: {text}")
-    await asyncio.sleep(0.1)
-    speech = synthesiser(f"{text}", forward_params={"do_sample": True})
-    wavfile.write("bark_out.wav", rate=speech["sampling_rate"], data=speech["audio"].T)
-    log_info("Synthesized")
 
 
 async def on_shutdown(app):
