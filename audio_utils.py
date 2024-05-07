@@ -35,8 +35,6 @@ class AudioUtils:
         audio_array = self.tta_model.generate(**input_features)
         if self.device != "cpu":
             audio_array = audio_array.to(self.device, torch.float32)
-        else:
-            audio_array = audio_array.cpu()
-        audio_array = audio_array.numpy().squeeze()
+        audio_array = audio_array.cpu().numpy().squeeze()
         sample_rate = self.tta_model.generation_config.sample_rate
         wavfile.write("bark_out.wav", rate=sample_rate, data=audio_array)
