@@ -6,21 +6,21 @@ import logging
 import os
 import ssl
 import uuid
-from asyncio import create_task, Task, Queue
+from asyncio import create_task, Task
 from typing import List
 
 import librosa
 import numpy as np
+import torch
 from aiohttp import web
 from aiortc import RTCPeerConnection, RTCSessionDescription, MediaStreamTrack, RTCDataChannel
-from aiortc.contrib.media import MediaPlayer
 from av import AudioFrame
 from scipy.io import wavfile
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
 from transformers import pipeline
-import torch
 
 from chain import chain
+from playback_stream_track import PlaybackStreamTrack
 
 logger = logging.getLogger("pc")
 ROOT = os.path.dirname(__file__)
@@ -38,49 +38,12 @@ model.config.forced_decoder_ids = None
 synthesiser = pipeline("text-to-speech", text_to_speech_model_name, device=device)
 
 
-class PlaybackStreamTrack(MediaStreamTrack):
-    kind = "audio"
-    response_ready: bool = False
-    frames: Queue = Queue()
-    track: MediaStreamTrack = None
-    counter: int = 0
-    time: float = 0.0
-
-    def __init__(self):
-        super().__init__()  # don't forget this!
-
-    def select_track(self):
-        if self.response_ready:
-            self.track = MediaPlayer("bark_out.wav", format="wav", loop=False).audio
-        else:
-            self.track = MediaPlayer("silence.wav", format="wav", loop=False).audio
-
-    async def recv(self):
-        self.counter += 1
-        if self.track is None:
-            self.select_track()
-        try:
-            async with asyncio.timeout(1):
-                frame = await self.track.recv()
-        except Exception as e:
-            self.select_track()
-            if self.response_ready:
-                self.response_ready = False
-            frame = await self.track.recv()
-
-        if frame.pts < frame.sample_rate * self.time:
-            frame.pts = frame.sample_rate * self.time
-        self.time += 0.02
-        return frame
-
-
 class State:
     id: str
     filename: str
     pc: RTCPeerConnection
     dc: RTCDataChannel
     track: MediaStreamTrack
-    # recorder: MediaRecorder
     buffer: list = []
     recording: bool = False
     task: Task
