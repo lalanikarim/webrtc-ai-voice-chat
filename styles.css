@@ -5,6 +5,10 @@
     --loader-color: #005e54;
 }
 
+html, body, .full-height, .chat-container, div#messagesContainer {
+  height: 100%;
+}
+
 div#recordingControls {
   min-height: 55px;
 }
@@ -13,6 +17,7 @@ div.wave {
    display:flex;
   justify-content:center;
   align-items:center;
+  margin-right: -48px;
 }
 
 .wave ul {
@@ -190,7 +195,7 @@ div.wave {
 }
 
 .conversation {
-  height: calc(100% - 12px);
+  flex-grow: 1;
   position: relative;
   background: #efe7dd;
   z-index: 0;
@@ -215,7 +220,7 @@ div.wave {
   overflow-x: hidden;
   padding: 0 16px;
   margin-bottom: 5px;
-  height: calc(100% - 68px);
+  height: calc(100% - 93px);
   min-height: 100px;
 }
 .message {
@@ -375,6 +380,7 @@ div.wave {
   display: flex;
   justify-content: center;
   font-size: 13px;
+  height: 30px;
 }
 
 .conversation .status div {
@@ -387,7 +393,8 @@ div.wave {
 .processing {
   width: 120px;
   height: 20px;
-  margin-top: 10px;
+  margin-top: 7px;
+  margin-right: -48px;
   -webkit-mask: linear-gradient(90deg,#000 70%,#0000 0) left/20% 100%;
   background:
           linear-gradient(var(--loader-color) 0 0) left -25% top 0 /20% 100% no-repeat
@@ -398,3 +405,8 @@ div.wave {
   100% {background-position: right -25% top 0}
 }
 
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+}

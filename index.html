@@ -10,102 +10,102 @@
 <body>
 
 
-<div class="container">
+<div class="container full-height">
 
-    <div class="option d-none">
-        <input id="use-stun" type="checkbox"/>
-        <label for="use-stun">Use STUN server</label>
-    </div>
 
-    <div id="messagesContainer" class="row">
-        <div class="col">
-            <div class="chat-container">
-                <div class="user-bar">
-                    <div class="name d-flex d-none">phi3</div>
+    <div id="messagesContainer">
+        <div class="chat-container">
+            <div class="user-bar">
+                <div class="name d-flex d-none">phi3</div>
 
-                    <div class="d-flex" style="float: right;">
-                        <select class="form-control d-none" id="presets" onchange="changePreset()">
-                            <option>v2/en_speaker_0</option>
-                            <option>v2/en_speaker_1</option>
-                            <option>v2/en_speaker_2</option>
-                            <option>v2/en_speaker_3</option>
-                            <option>v2/en_speaker_4</option>
-                            <option>v2/en_speaker_5</option>
-                            <option>v2/en_speaker_6</option>
-                            <option>v2/en_speaker_7</option>
-                            <option>v2/en_speaker_8</option>
-                            <option>v2/en_speaker_9</option>
-                        </select>
-                        <select class="form-control d-none" id="models" onchange="changeModel()">
-                            <option>phi3</option>
-                            <option>mistral</option>
-                            <option>llama3</option>
-                        </select>
+                <div class="d-flex" style="float: right;">
+                    <select class="form-control d-none" id="presets" onchange="changePreset()">
+                        <option>v2/en_speaker_0</option>
+                        <option>v2/en_speaker_1</option>
+                        <option>v2/en_speaker_2</option>
+                        <option>v2/en_speaker_3</option>
+                        <option>v2/en_speaker_4</option>
+                        <option>v2/en_speaker_5</option>
+                        <option>v2/en_speaker_6</option>
+                        <option>v2/en_speaker_7</option>
+                        <option>v2/en_speaker_8</option>
+                        <option>v2/en_speaker_9</option>
+                    </select>
+                    <select class="form-control d-none" id="models" onchange="changeModel()">
+                        <option>phi3</option>
+                        <option>mistral</option>
+                        <option>llama3</option>
+                    </select>
+                </div>
+            </div>
+            <div class="conversation">
+                <div class="conversation-container"></div>
+                <div class="status">
+                    <div>
+                        WebRTC Connection State: <span id="connectionStatus"></span>
                     </div>
                 </div>
-                <div class="conversation">
-                    <div class="conversation-container"></div>
-                    <div class="status">
-                        <div>
-                        WebRTC Connection State: <span id="connectionStatus"></span>
+                <div class="conversation-compose">
+                    <div class="emoji">
+                        <button id="power" type="button" class="btn btn-link text-success">
+                            <i class="fa-solid fa-power-off"></i>
+                        </button>
+                    </div>
+                    <div class="input-msg">
+
+                        <div class="wave d-none">
+                            <ul>
+                                <li></li>
+                                <li></li>
+                                <li></li>
+                                <li></li>
+                                <li></li>
+                                <li></li>
+                                <li></li>
+                                <li></li>
+                                <li></li>
+                                <li></li>
+                                <li></li>
+                                <li></li>
+                                <li></li>
+                                <li></li>
+                                <li></li>
+                            </ul>
+                        </div>
+                        <div class="d-flex justify-content-center py-2">
+                            <div class="processing d-none"></div>
                         </div>
                     </div>
-                    <div class="conversation-compose">
-                        <div class="emoji">
-                            <button id="power" type="button" class="btn btn-link text-success">
-                                <i class="fa-solid fa-power-off"></i>
-                            </button>
+                    <div class="photo"></div>
+                    <div class="send">
+                        <div class="circle start d-none" onclick="record()">
+                            <i class="fa-solid fa-microphone"></i>
                         </div>
-                        <div class="input-msg">
-
-                            <div class="wave d-none">
-                                <ul>
-                                    <li></li>
-                                    <li></li>
-                                    <li></li>
-                                    <li></li>
-                                    <li></li>
-                                    <li></li>
-                                    <li></li>
-                                    <li></li>
-                                    <li></li>
-                                    <li></li>
-                                    <li></li>
-                                    <li></li>
-                                    <li></li>
-                                    <li></li>
-                                    <li></li>
-                                </ul>
-                            </div>
-                            <div class="d-flex justify-content-center py-2">
-                                <div class="processing d-none"></div>
-                            </div>
+                        <div class="circle stop d-none" onclick="stopRecord()">
+                            <i class="fa-solid fa-stop"></i>
                         </div>
-                        <div class="photo"></div>
-                        <div class="send">
-                            <div class="circle start d-none" onclick="record()">
-                                <i class="fa-solid fa-microphone"></i>
-                            </div>
-                            <div class="circle stop d-none" onclick="stopRecord()">
-                                <i class="fa-solid fa-stop"></i>
-                            </div>
-                            <div class="circle wait">
-                                <i class="fa-solid fa-hourglass-half"></i>
-                            </div>
+                        <div class="circle wait">
+                            <i class="fa-solid fa-hourglass-half"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
     </div>
 
-    <div id="media">
-        <audio id="remoteAudio" autoplay="autoplay"></audio>
-    </div>
+
 
 
 </div>
 
+<div id="media">
+    <audio id="remoteAudio" autoplay="autoplay"></audio>
+</div>
+<div class="option d-none">
+    <input id="use-stun" type="checkbox"/>
+    <label for="use-stun">Use STUN server</label>
+</div>
 <script src="client.js"></script>
 </body>
 </html>
