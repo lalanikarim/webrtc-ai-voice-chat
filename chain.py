@@ -4,8 +4,8 @@ from langchain_core.output_parsers import StrOutputParser
 
 
 class Chain:
-    def __init__(self, model="phi3"):
-        self.prompt = PromptTemplate.from_template("""
+    def __init__(self, model_name="phi3", ollama_host="http://localhost:11434"):
+        self.__prompt = PromptTemplate.from_template("""
         You are a helpful assistant. 
         Respond truthfully to the best of your abilities. 
         Only answer in short one or two sentences.
@@ -26,13 +26,21 @@ class Chain:
         Human: {human_input}
         AI: 
         """)
-        self.model = model
-        self.chat_model = ChatOllama(model=self.model)
+        self.__model_name = model_name
+        self.__ollama_host = ollama_host
+        self.__chain = self.__create_chain()
 
-    def change_model(self, model: str):
-        self.model = model
-        self.chat_model = ChatOllama(model=self.model)
+    def __create_chain(self):
+        model = ChatOllama(model=self.__model_name, host=self.__ollama_host)
+        return self.__prompt | model | StrOutputParser()
 
-    def get_model(self):
-        chain = self.prompt | self.chat_model | StrOutputParser()
-        return chain
+    def set_model(self, model_name: str):
+        self.__model_name = model_name
+        self.__chain = self.__create_chain()
+
+    def set_ollama_host(self, ollama_host: str):
+        self.__ollama_host = ollama_host
+        self.__chain = self.__create_chain()
+
+    def get_chain(self):
+        return self.__chain

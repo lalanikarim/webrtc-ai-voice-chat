@@ -5,12 +5,13 @@ import logging
 import os
 import ssl
 from asyncio import create_task
+from typing import Optional
 
 from aiohttp import web
 from aiortc import RTCSessionDescription, MediaStreamTrack
 from av import AudioFrame
 
-from audio_utils import AudioUtils
+from audio_utils import Whisper, Bark
 from chain import Chain
 from state import State
 
@@ -19,9 +20,9 @@ ROOT = os.path.dirname(__file__)
 
 pcs = set()
 
-audio_utils = AudioUtils()
-
-chain = Chain()
+whisper: Optional[Whisper] = None
+bark: Optional[Bark] = None
+chain: Optional[Chain] = None
 
 
 async def index(request):
@@ -111,25 +112,29 @@ async def offer(request):
                 state.recording = False
                 await asyncio.sleep(0.5)
                 data = state.flush_audio()
-                transcription = audio_utils.transcribe(data)
+                transcription = whisper.transcribe(data)
                 channel.send(f"Human: {transcription[0]}")
                 state.log_info(transcription[0])
                 await asyncio.sleep(0)
-                response = chain.get_model().invoke({"human_input": transcription[0]})
+                response = chain.get_chain().invoke({"human_input": transcription[0]})
                 response = response.split("\n")[0]
                 channel.send(f"AI: {response}")
                 state.log_info(response)
-                await asyncio.sleep(0)
-                audio_utils.synthesize(response)
-                state.response_player.response_ready = True
+                if len(response.strip()) > 0:
+                    await asyncio.sleep(0)
+                    bark.synthesize(response)
+                    state.response_player.response_ready = True
+                else:
+                    channel.send("playing: response")
+                    channel.send("playing: silence")
                 await asyncio.sleep(0)
             if message[0:7] == "preset:":
                 preset = message[7:]
-                audio_utils.voice_preset = preset
+                bark.set_voice_preset(preset)
                 state.log_info("Changed voice preset to %s", preset)
             if message[0:6] == "model:":
                 model = message[6:]
-                chain.change_model(model)
+                chain.set_model(model)
                 state.log_info("Changed model to %s", model)
 
     return web.Response(
@@ -156,7 +161,7 @@ def deleteFile(filename):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="WebRTC server")
+    parser = argparse.ArgumentParser(description="WebRTC AI Voice Chat")
     parser.add_argument("--cert-file", help="SSL certificate file (for HTTPS)")
     parser.add_argument("--key-file", help="SSL key file (for HTTPS)")
     parser.add_argument(
@@ -164,6 +169,15 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--port", type=int, default=8080, help="Port for HTTP server (default: 8080)"
+    )
+    parser.add_argument(
+        "--ollama-host", default="http://localhost:11434", help="Ollama API Server (default: http://localhost:11434"
+    )
+    parser.add_argument(
+        "--whisper-model", default="openai/whisper-small", help="Whisper model (default: openai/whisper-small)"
+    )
+    parser.add_argument(
+        "--bark-model", default="suno/bark-small", help="Bark model (default: suno/bark-small)"
     )
     parser.add_argument("--verbose", "-v", action="count")
 
@@ -173,6 +187,20 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
+
+    chain = Chain()
+    if args.ollama_host:
+        chain.set_ollama_host(args.ollama_host)
+
+    if args.whisper_model:
+        whisper = Whisper(model_name=args.whisper_model)
+    else:
+        whisper = Whisper()
+
+    if args.bark_model:
+        bark = Bark(model_name=args.bark_model)
+    else:
+        bark = Bark()
 
     if args.cert_file:
         ssl_context = ssl.SSLContext()
