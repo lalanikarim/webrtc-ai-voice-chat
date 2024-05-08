@@ -124,7 +124,7 @@ async def offer(request):
                     channel.send("playing: response")
                     channel.send("playing: silence")
                     return
-                response = response.split("\n")[0]
+                response = response.strip().split("\n")[0]
                 channel.send(f"AI: {response}")
                 state.log_info(response)
                 if len(response.strip()) > 0:
