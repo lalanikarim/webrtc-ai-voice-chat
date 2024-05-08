@@ -15,6 +15,7 @@ For interesting projects and related resources, checkout the [Awesome Projects P
 Demo
 ----
 
+Unmute the audio to hear responses 
 https://github.com/lalanikarim/webrtc-ai-voice-chat/assets/1296705/7aa05d6f-ff05-4c72-b2e8-6e4e1119a68c
 
 
