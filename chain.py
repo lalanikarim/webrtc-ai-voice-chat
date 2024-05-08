@@ -31,7 +31,7 @@ class Chain:
         self.__chain = self.__create_chain()
 
     def __create_chain(self):
-        model = ChatOllama(model=self.__model_name, host=self.__ollama_host)
+        model = ChatOllama(model=self.__model_name, base_url=self.__ollama_host)
         return self.__prompt | model | StrOutputParser()
 
     def set_model(self, model_name: str):

@@ -116,7 +116,14 @@ async def offer(request):
                 channel.send(f"Human: {transcription[0]}")
                 state.log_info(transcription[0])
                 await asyncio.sleep(0)
-                response = chain.get_chain().invoke({"human_input": transcription[0]})
+                try:
+                    response = chain.get_chain().invoke({"human_input": transcription[0]})
+                except Exception as e:
+                    channel.send("AI: Error communicating with Ollama")
+                    channel.send(f"AI: {e}")
+                    channel.send("playing: response")
+                    channel.send("playing: silence")
+                    return
                 response = response.split("\n")[0]
                 channel.send(f"AI: {response}")
                 state.log_info(response)
