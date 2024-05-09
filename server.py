@@ -5,7 +5,7 @@ import logging
 import os
 import ssl
 import threading
-from asyncio import create_task
+from asyncio import create_task, AbstractEventLoop
 from typing import Optional
 
 from aiohttp import web
@@ -131,6 +131,11 @@ async def offer(request):
                 response = response.strip().split("\n")[0]
                 state.log_info(response)
                 await synthesize_response(response)
+            try:
+                loop = asyncio.get_running_loop()
+                loop.stop()
+            finally:
+                pass
 
         async def transcribe_request(data):
             response = None
@@ -192,7 +197,7 @@ def create_bg_loop():
         except asyncio.CancelledError as e:
             print('CANCELLEDERROR {}'.format(e))
         finally:
-            for task in asyncio.Task.all_tasks():
+            for task in asyncio.all_tasks(loop):
                 task.cancel()
             loop.run_until_complete(loop.shutdown_asyncgens())
             loop.stop()
