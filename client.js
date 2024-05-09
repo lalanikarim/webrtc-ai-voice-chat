@@ -140,6 +140,7 @@ function logmessage(message) {
             }
             newMessage.textContent = messageText
             log.appendChild(newMessage)
+            log.scrollTop = log.scrollHeight
         }
     }
 }

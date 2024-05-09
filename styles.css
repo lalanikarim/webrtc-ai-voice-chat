@@ -199,6 +199,7 @@ div.wave {
   position: relative;
   background: #efe7dd;
   z-index: 0;
+  max-height: calc(100% - 55px);
 }
 
 .conversation ::-webkit-scrollbar {

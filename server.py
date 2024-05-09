@@ -151,13 +151,13 @@ async def offer(request):
 
         async def synthesize_response(response):
             if len(response.strip()) > 0:
+                channel.send(f"AI: {response}")
                 await asyncio.sleep(0)
                 bark.synthesize(response)
                 state.response_player.response_ready = True
             else:
                 channel.send("playing: response")
                 channel.send("playing: silence")
-            channel.send(f"AI: {response}")
             await asyncio.sleep(0)
 
     return web.Response(
