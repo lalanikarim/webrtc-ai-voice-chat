@@ -93,6 +93,7 @@ async def offer(request):
     async def on_datachannel(channel):
         state.log_info("DataChannel")
         state.response_player.channel = channel
+
         @channel.on("message")
         async def on_message(message):
             state.log_info("Received message on channel: %s", message)
@@ -125,7 +126,6 @@ async def offer(request):
                     channel.send("playing: silence")
                     return
                 response = response.strip().split("\n")[0]
-                channel.send(f"AI: {response}")
                 state.log_info(response)
                 if len(response.strip()) > 0:
                     await asyncio.sleep(0)
@@ -134,6 +134,7 @@ async def offer(request):
                 else:
                     channel.send("playing: response")
                     channel.send("playing: silence")
+                channel.send(f"AI: {response}")
                 await asyncio.sleep(0)
             if message[0:7] == "preset:":
                 preset = message[7:]
