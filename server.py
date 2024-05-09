@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import ssl
+import threading
 from asyncio import create_task
 from typing import Optional
 
@@ -113,29 +114,8 @@ async def offer(request):
                 state.recording = False
                 await asyncio.sleep(0.5)
                 data = state.flush_audio()
-                transcription = whisper.transcribe(data)
-                channel.send(f"Human: {transcription[0]}")
-                state.log_info(transcription[0])
-                await asyncio.sleep(0)
-                try:
-                    response = chain.get_chain().invoke({"human_input": transcription[0]})
-                except Exception as e:
-                    channel.send("AI: Error communicating with Ollama")
-                    channel.send(f"AI: {e}")
-                    channel.send("playing: response")
-                    channel.send("playing: silence")
-                    return
-                response = response.strip().split("\n")[0]
-                state.log_info(response)
-                if len(response.strip()) > 0:
-                    await asyncio.sleep(0)
-                    bark.synthesize(response)
-                    state.response_player.response_ready = True
-                else:
-                    channel.send("playing: response")
-                    channel.send("playing: silence")
-                channel.send(f"AI: {response}")
-                await asyncio.sleep(0)
+                process_loop = create_bg_loop()
+                asyncio.run_coroutine_threadsafe(process_request(data), process_loop)
             if message[0:7] == "preset:":
                 preset = message[7:]
                 bark.set_voice_preset(preset)
@@ -144,6 +124,41 @@ async def offer(request):
                 model = message[6:]
                 chain.set_model(model)
                 state.log_info("Changed model to %s", model)
+
+        async def process_request(data):
+            continue_to_synthesize, response = await transcribe_request(data)
+            if continue_to_synthesize:
+                response = response.strip().split("\n")[0]
+                state.log_info(response)
+                await synthesize_response(response)
+
+        async def transcribe_request(data):
+            response = None
+            transcription = whisper.transcribe(data)
+            channel.send(f"Human: {transcription[0]}")
+            state.log_info(transcription[0])
+            await asyncio.sleep(0)
+            try:
+                response = chain.get_chain().invoke({"human_input": transcription[0]})
+                continue_to_synthesize = True
+            except Exception as e:
+                channel.send("AI: Error communicating with Ollama")
+                channel.send(f"AI: {e}")
+                channel.send("playing: response")
+                channel.send("playing: silence")
+                continue_to_synthesize = False
+            return continue_to_synthesize, response
+
+        async def synthesize_response(response):
+            if len(response.strip()) > 0:
+                await asyncio.sleep(0)
+                bark.synthesize(response)
+                state.response_player.response_ready = True
+            else:
+                channel.send("playing: response")
+                channel.send("playing: silence")
+            channel.send(f"AI: {response}")
+            await asyncio.sleep(0)
 
     return web.Response(
         content_type="application/json",
@@ -166,6 +181,27 @@ def deleteFile(filename):
         os.remove(filename)
     except OSError:
         pass
+
+
+# https://gist.github.com/ultrafunkamsterdam/8be3d55ac45759aa1bd843ab64ce876d
+def create_bg_loop():
+    def to_bg(loop):
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_forever()
+        except asyncio.CancelledError as e:
+            print('CANCELLEDERROR {}'.format(e))
+        finally:
+            for task in asyncio.Task.all_tasks():
+                task.cancel()
+            loop.run_until_complete(loop.shutdown_asyncgens())
+            loop.stop()
+            loop.close()
+
+    new_loop = asyncio.new_event_loop()
+    t = threading.Thread(target=to_bg, args=(new_loop,))
+    t.start()
+    return new_loop
 
 
 if __name__ == "__main__":
