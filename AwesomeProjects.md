@@ -24,7 +24,7 @@ Tutorials and Articles
 
 Projects
 --------
-**Coming Soon**
+* [Style Guide - a fashion focused AI Assistant](https://github.com/lalanikarim/style-guide-ai-assistant/)
 
 Contribute to this page
 -----------------------
